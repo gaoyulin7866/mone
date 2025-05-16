@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getInvokeHistory } from '@/api/agent';
 import VueJsonPretty from 'vue-json-pretty';
@@ -61,14 +61,18 @@ const modelValue = computed({
 
 const invokeHistory = ref<InvokeHistory>({} as InvokeHistory)
 
-onMounted(() => {
-    getInvokeHistory(14).then((res) => {
-        if (res.data.code === 200) {
-            invokeHistory.value = res.data.data || {} as InvokeHistory
-        } else {
-            ElMessage.error(res.data.message)
-        }
-    })
+watch(() => props.modelValue, (val) => {
+    if (val) {
+        getInvokeHistory(props.agentId).then((res) => {
+            if (res.data.code === 200) {
+                invokeHistory.value = res.data.data || {} as InvokeHistory
+            } else {
+                ElMessage.error(res.data.message)
+            }
+        })
+    } else {
+        invokeHistory.value = {} as InvokeHistory
+    }
 })
 
 
