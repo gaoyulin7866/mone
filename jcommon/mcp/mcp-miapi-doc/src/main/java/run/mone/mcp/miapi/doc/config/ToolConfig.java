@@ -1,4 +1,4 @@
-package run.mone.mcp.cursor.miapi.config;
+package run.mone.mcp.miapi.doc.config;
 
 import com.google.common.collect.Lists;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,41 +8,27 @@ import org.springframework.context.annotation.Configuration;
 import run.mone.hive.mcp.function.ChatFunction;
 import run.mone.hive.mcp.service.RoleMeta;
 import run.mone.hive.roles.tool.*;
-import run.mone.mcp.cursor.miapi.function.MiApiFunction;
-import run.mone.mcp.cursor.miapi.tool.ApiInfoTool;
-import run.mone.mcp.cursor.miapi.tool.ApiTestTool;
-import run.mone.mcp.cursor.miapi.tool.FindDetailTook;
+import run.mone.mcp.miapi.doc.tool.ApiDocTool;
 
 @Configuration
 public class ToolConfig {
 
-    @Autowired
-    private ApiInfoTool apiInfoTool;
-
-    @Autowired
-    private FindDetailTook findDetailTook;
-
-    @Autowired
-    private ApiTestTool apiTestTool;
-
-//    @Autowired
-//    private MiApiFunction miApiFunction;
-
     @Value("${mcp.agent.name}")
     private String agentName;
+
+    @Autowired
+    private ApiDocTool apiDocTool;
 
     @Bean
     public RoleMeta roleMeta() {
         return RoleMeta.builder()
                 .outputFormat("json")
                 .profile("你是一名优秀的私人助理")
-                .goal("你的目标是更好的帮助用户根据地址查询miapi平台中的接口详情，或者是针对用户指出的接口通过curl的方式进行测试")
+                .goal("你的目标是帮助用户根据java源代码生成API接口文档")
                 .constraints("不要探讨一些负面的东西,如果用户问你,你可以直接拒绝掉")
                 //内部工具
                 .tools(Lists.newArrayList(
-                        apiInfoTool,
-                        findDetailTook,
-                        apiTestTool,
+                        apiDocTool,
                         new ChatTool(),
                         new AttemptCompletionTool(),
                         new AskTool(),
