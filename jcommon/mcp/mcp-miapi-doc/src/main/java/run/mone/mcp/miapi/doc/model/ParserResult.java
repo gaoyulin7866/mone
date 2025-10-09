@@ -144,12 +144,53 @@ public class ParserResult {
 
     @Override
     public String toString() {
-        return "ParserResult{" +
-                "success=" + success +
-                ", errorMessage='" + errorMessage + '\'' +
-                ", apiGroups=" + apiGroups +
-                ", parsedFileCount=" + parsedFileCount +
-                ", parsedApiCount=" + parsedApiCount +
-                '}';
+        StringBuilder json = new StringBuilder();
+        json.append("{\n");
+        json.append("  \"success\": ").append(success).append(",\n");
+        json.append("  \"errorMessage\": \"").append(escapeJson(errorMessage)).append("\",\n");
+        json.append("  \"apiGroups\": {\n");
+
+        int groupCount = apiGroups.size();
+        int groupIndex = 0;
+        for (Map.Entry<String, List<ApiInfo>> entry : apiGroups.entrySet()) {
+            json.append("    \"").append(escapeJson(entry.getKey())).append("\": [\n");
+
+            List<ApiInfo> apis = entry.getValue();
+            int apiCount = apis.size();
+            for (int i = 0; i < apiCount; i++) {
+                json.append("      ").append(apis.get(i).toString());
+                if (i < apiCount - 1) {
+                    json.append(",");
+                }
+                json.append("\n");
+            }
+
+            json.append("    ]");
+            if (groupIndex < groupCount - 1) {
+                json.append(",");
+            }
+            json.append("\n");
+            groupIndex++;
+        }
+
+        json.append("  },\n");
+        json.append("  \"parsedFileCount\": ").append(parsedFileCount).append(",\n");
+        json.append("  \"parsedApiCount\": ").append(parsedApiCount).append("\n");
+        json.append("}");
+
+        return json.toString();
+    }
+
+    private String escapeJson(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

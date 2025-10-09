@@ -118,14 +118,30 @@ public class ParameterInfo {
 
     @Override
     public String toString() {
-        return "ParameterInfo{" +
-                "name='" + name + '\'' +
-                ", type='" + type + '\'' +
-                ", description='" + description + '\'' +
-                ", required=" + required +
-                ", position='" + position + '\'' +
-                ", defaultValue='" + defaultValue + '\'' +
-                ", genericType='" + genericType + '\'' +
-                '}';
+        StringBuilder json = new StringBuilder();
+        json.append("{\n");
+        json.append("  \"name\": \"").append(escapeJson(name)).append("\",\n");
+        json.append("  \"type\": \"").append(escapeJson(type)).append("\",\n");
+        json.append("  \"description\": \"").append(escapeJson(description)).append("\",\n");
+        json.append("  \"required\": ").append(required).append(",\n");
+        json.append("  \"position\": \"").append(escapeJson(position)).append("\",\n");
+        json.append("  \"defaultValue\": \"").append(escapeJson(defaultValue)).append("\",\n");
+        json.append("  \"genericType\": \"").append(escapeJson(genericType)).append("\"\n");
+        json.append("}");
+        return json.toString();
+    }
+
+    // 辅助方法：转义 JSON 字符串
+    private String escapeJson(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

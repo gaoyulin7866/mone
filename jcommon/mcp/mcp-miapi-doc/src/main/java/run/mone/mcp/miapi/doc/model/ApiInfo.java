@@ -211,20 +211,55 @@ public class ApiInfo {
 
     @Override
     public String toString() {
-        return "ApiInfo{" +
-                "name='" + name + '\'' +
-                ", path='" + path + '\'' +
-                ", method='" + method + '\'' +
-                ", description='" + description + '\'' +
-                ", inputParameters=" + inputParameters +
-                ", returnType='" + returnType + '\'' +
-                ", returnDescription='" + returnDescription + '\'' +
-                ", methodSignature='" + methodSignature + '\'' +
-                ", controllerClass='" + controllerClass + '\'' +
-                ", controllerQualifiedName='" + controllerQualifiedName + '\'' +
-                ", group='" + group + '\'' +
-                ", tags=" + tags +
-                ", deprecated=" + deprecated +
-                '}';
+        StringBuilder json = new StringBuilder();
+        json.append("{\n");
+        json.append("  \"name\": \"").append(escapeJson(name)).append("\",\n");
+        json.append("  \"path\": \"").append(escapeJson(path)).append("\",\n");
+        json.append("  \"method\": \"").append(escapeJson(method)).append("\",\n");
+        json.append("  \"description\": \"").append(escapeJson(description)).append("\",\n");
+        json.append("  \"inputParameters\": ").append(listToJsonArray(inputParameters)).append(",\n");
+        json.append("  \"returnType\": \"").append(escapeJson(returnType)).append("\",\n");
+        json.append("  \"returnDescription\": \"").append(escapeJson(returnDescription)).append("\",\n");
+        json.append("  \"returnFields\": ").append(listToJsonArray(returnFields)).append(",\n");
+        json.append("  \"methodSignature\": \"").append(escapeJson(methodSignature)).append("\",\n");
+        json.append("  \"controllerClass\": \"").append(escapeJson(controllerClass)).append("\",\n");
+        json.append("  \"controllerQualifiedName\": \"").append(escapeJson(controllerQualifiedName)).append("\",\n");
+        json.append("  \"group\": \"").append(escapeJson(group)).append("\",\n");
+        json.append("  \"tags\": ").append(listToJsonArray(tags)).append(",\n");
+        json.append("  \"deprecated\": ").append(deprecated).append("\n");
+        json.append("}");
+        return json.toString();
+    }
+
+    private String escapeJson(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
+    private String listToJsonArray(List<?> list) {
+        if (list == null || list.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            Object item = list.get(i);
+            if (item instanceof String) {
+                sb.append("\"").append(escapeJson((String) item)).append("\"");
+            } else {
+                sb.append(item.toString());
+            }
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

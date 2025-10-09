@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import run.mone.mcp.miapi.doc.model.ApiInfo;
 import run.mone.mcp.miapi.doc.model.ParameterInfo;
 import run.mone.mcp.miapi.doc.model.ParserResult;
+import run.mone.mcp.miapi.doc.util.FileScanner;
 import run.mone.mcp.miapi.doc.util.TypeExtractorUtil;
 
 import java.io.File;
@@ -144,38 +145,6 @@ public class SourceCodeApiParser {
             logger.error("解析目录失败: {}", directoryPath, e);
             result.setSuccess(false);
             result.setErrorMessage("解析目录失败: " + e.getMessage());
-        }
-        
-        return result;
-    }
-    
-    /**
-     * 解析多个Java文件
-     * @param filePaths 文件路径列表
-     * @return 解析结果
-     */
-    public ParserResult parseFiles(List<String> filePaths) {
-        ParserResult result = new ParserResult();
-        result.setSuccess(true);
-        
-        try {
-            for (String filePath : filePaths) {
-                if (FileScanner.isJavaFile(filePath)) {
-//                    ParserResult fileResult = parseFile(filePath);
-//                    if (fileResult.isSuccess()) {
-//                        mergeResults(result, fileResult);
-//                    } else {
-//                        System.err.println("解析文件失败: " + filePath + ", 错误: " + fileResult.getErrorMessage());
-//                    }
-                }
-            }
-            
-            // 处理相同地址的区分
-            processDuplicatePaths(result);
-            
-        } catch (Exception e) {
-            result.setSuccess(false);
-            result.setErrorMessage("解析文件列表失败: " + e.getMessage());
         }
         
         return result;
@@ -601,20 +570,11 @@ public class SourceCodeApiParser {
      * 合并解析结果
      */
     private void mergeResults(ParserResult target, ParserResult source) {
-        // 合并所有接口
-//        target.getAllApis().addAll(source.getAllApis());
-        
         // 合并按Controller分组的结果
         for (String key : source.getApiGroups().keySet()) {
             target.getApiGroups().computeIfAbsent(key, k -> new ArrayList<>())
                   .addAll(source.getApiGroups().get(key));
         }
-        
-        // 合并按路径分组的结果
-//        for (String key : source.getApiByPath().keySet()) {
-//            target.getApiByPath().computeIfAbsent(key, k -> new ArrayList<>())
-//                  .addAll(source.getApiByPath().get(key));
-//        }
         
         // 更新统计信息
         target.setParsedFileCount(target.getParsedFileCount() + source.getParsedFileCount());
@@ -625,16 +585,6 @@ public class SourceCodeApiParser {
      * 处理相同地址的区分
      */
     private void processDuplicatePaths(ParserResult result) {
-//        for (Map.Entry<String, List<ApiInfo>> entry : result.getApiByPath().entrySet()) {
-//            List<ApiInfo> apis = entry.getValue();
-//            if (apis.size() > 1) {
-//                for (int i = 0; i < apis.size(); i++) {
-//                    ApiInfo api = apis.get(i);
-//                    String originalPath = api.getPath();
-//                    String newPath = originalPath + "$" + (i + 1);
-//                    api.setPath(newPath);
-//                }
-//            }
-//        }
+
     }
 }
