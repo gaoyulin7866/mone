@@ -2,22 +2,34 @@ package run.mone.mcp.miapi.doc.tool;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import run.mone.hive.http.HttpClient;
 import run.mone.hive.roles.ReactorRole;
 import run.mone.hive.roles.tool.ITool;
+import run.mone.mcp.miapi.doc.http.HttpClient;
 import run.mone.mcp.miapi.doc.model.ParserResult;
 import run.mone.mcp.miapi.doc.parser.SourceCodeApiParser;
 import run.mone.mcp.miapi.doc.util.FileScanner;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
+@Slf4j
 public class ApiDocTool implements ITool {
 
     @Value("${miapi.host}")
     private String host;
+
+    private static final String api_url = "/OpenApi/generateDoc";
+
+    private static final String api_url_project = "/OpenApi/createProject";
+
+    @Value("${doc.host}")
+    private String doc_host;
 
     private static HttpClient httpClient = new HttpClient();
 
@@ -74,8 +86,18 @@ public class ApiDocTool implements ITool {
             if (!FileScanner.isDirectoryExists(directoryPath)) {
                 result.addProperty("message", "代码路径或地址不正确");
             }
+            String projectName = "";
             String doc = parseDirectory(directoryPath);
+            if (directoryPath != null && directoryPath.endsWith(".git")) {
+                String[] split = directoryPath.split(".");
+                projectName = StringUtils.substringAfterLast(split[0], "/");
+
+            } else {
+                projectName = StringUtils.substringAfterLast(directoryPath, "/");
+            }
+            int projectId = updateDoc(doc, projectName);
             result.addProperty("apiDocs", doc);
+            result.addProperty("apiDocsUrl", doc_host + projectId);
             return result;
         } catch (Exception e) {
             result.addProperty("error", "生成接口信息失败: " + e.getMessage());
@@ -97,5 +119,19 @@ public class ApiDocTool implements ITool {
         } else {
             return "";
         }
+    }
+
+    private int updateDoc(String docs, String projectName) {
+        try {
+            Map<String, Object> map = new HashMap<>();
+            map.put("docs", docs);
+            map.put("groupId", "89");
+            map.put("projectName", projectName);
+            JsonObject response = httpClient.post(host + api_url, gson.toJson(map));
+            return response.get("data").getAsInt();
+        } catch (Exception e) {
+            log.error("updateDoc error: ", e);
+        }
+        return 0;
     }
 }

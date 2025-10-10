@@ -265,6 +265,9 @@ public class SourceCodeApiParser {
         } else if (method.getAnnotationByName("RequestMapping").isPresent()) {
             AnnotationExpr annotation = method.getAnnotationByName("RequestMapping").get();
             path = getAnnotationValue(annotation, "value");
+            if (path.isEmpty()) {
+                path = getAnnotationValue(annotation, "path");
+            }
             String methodValue = getAnnotationValue(annotation, "method");
             if (!methodValue.isEmpty()) {
                 methodType = methodValue;
@@ -338,14 +341,15 @@ public class SourceCodeApiParser {
 
         // 尝试解析返回类型的字段信息
         try {
-            List<String> list = TypeExtractorUtil.extractTypesByLevel(returnType);
+//            List<String> list = TypeExtractorUtil.extractTypesByLevel(returnType);
+
 
             for (int i = 0; i < cus.size(); i++) {
                 CompilationUnit compilationUnit = cus.get(i);
                 PackageDeclaration packageDeclaration = compilationUnit.getPackageDeclaration().orElse(null);
                 NodeList<TypeDeclaration<?>> types = compilationUnit.getTypes();
 
-//                cus.get(i).getClassByName("GoodInfo").ifPresent(v-> {
+//                cus.get(i).getClassByName(list.get(0)).ifPresent(v-> {
 //                    String className = v.getFullyQualifiedName().orElse("");
 //                    Class<?> clazz = tryLoadClass(className);
 //                });
@@ -411,7 +415,6 @@ public class SourceCodeApiParser {
      * 通过imports解析类名
      */
     private String resolveClassNameFromImports(String className, NodeList<ImportDeclaration> imports) {
-        className = "GoodInfo";
         // 首先检查是否有直接导入的类
         for (ImportDeclaration importDecl : imports) {
             String importName = importDecl.getNameAsString();
