@@ -2,6 +2,8 @@ package run.mone.mcp.cursor.miapi.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 /**
  * 参数信息
  */
@@ -48,16 +50,22 @@ public class ParameterInfo {
      */
     @JsonProperty("genericType")
     private String genericType;
+    /**
+     * 泛型信息
+     */
+    @JsonProperty("childList")
+    private List<ParameterInfo> childList;
 
     public ParameterInfo() {
     }
 
-    public ParameterInfo(String name, String type, String description, boolean required, String position) {
+    public ParameterInfo(String name, String type, String description, boolean required, String position, List<ParameterInfo> list) {
         this.name = name;
         this.type = type;
         this.description = description;
         this.required = required;
         this.position = position;
+        this.childList = list;
     }
 
     public String getName() {
@@ -116,6 +124,14 @@ public class ParameterInfo {
         this.genericType = genericType;
     }
 
+    public List<ParameterInfo> getChildList() {
+        return childList;
+    }
+
+    public void setChildList(List<ParameterInfo> childList) {
+        this.childList = childList;
+    }
+
     @Override
     public String toString() {
         StringBuilder json = new StringBuilder();
@@ -126,12 +142,30 @@ public class ParameterInfo {
         json.append("  \"required\": ").append(required).append(",\n");
         json.append("  \"position\": \"").append(escapeJson(position)).append("\",\n");
         json.append("  \"defaultValue\": \"").append(escapeJson(defaultValue)).append("\",\n");
-        json.append("  \"genericType\": \"").append(escapeJson(genericType)).append("\"\n");
+        json.append("  \"genericType\": \"").append(escapeJson(genericType)).append("\",\n");
+        json.append("  \"childList\": ").append(childListToString()).append("\n");
         json.append("}");
         return json.toString();
     }
+    private String childListToString() {
+        if (childList == null) {
+            return "null";
+        }
+        if (childList.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i = 0; i < childList.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(childList.get(i).toString());
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 
-    // 辅助方法：转义 JSON 字符串
     private String escapeJson(String input) {
         if (input == null) {
             return "";

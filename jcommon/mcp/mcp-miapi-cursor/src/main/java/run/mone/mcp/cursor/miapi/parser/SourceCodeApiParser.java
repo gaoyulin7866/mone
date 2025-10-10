@@ -24,6 +24,7 @@ import run.mone.mcp.cursor.miapi.model.ApiInfo;
 import run.mone.mcp.cursor.miapi.model.ParameterInfo;
 import run.mone.mcp.cursor.miapi.model.ParserResult;
 import run.mone.mcp.cursor.miapi.util.FileScanner;
+import run.mone.mcp.cursor.miapi.util.TypeExtractorUtil;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -40,12 +41,15 @@ public class SourceCodeApiParser {
     private final JavaParser javaParser;
 
     private final List<CompilationUnit> cus = new ArrayList<>();
+
+    private String codeRoot = "";
     
     public SourceCodeApiParser() {
         this(null);
     }
     
     public SourceCodeApiParser(String sourcePath) {
+        codeRoot = sourcePath;
         // 配置SymbolResolver以支持类型解析
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
         typeSolver.add(new ReflectionTypeSolver());
@@ -282,6 +286,35 @@ public class SourceCodeApiParser {
         apiInfo.setMethod(methodType);
         apiInfo.setPath(fullPath);
     }
+
+    private void deepField (String type, ParameterInfo parameterInfo) {
+        try {
+            if (!TypeExtractorUtil.isInternalType(type)) {
+                List<String> list = TypeExtractorUtil.extractTypesByLevel(type);
+                if (list.size() > 0) {
+                    List<ClassFieldExtractor.FieldInfo> fields = ClassFieldExtractor.findClassAndExtractFields(list.get(0), codeRoot);
+                    if (fields.size() > 0) {
+                        List<ParameterInfo> parameterInfoList = new ArrayList<>();
+                        for (ClassFieldExtractor.FieldInfo field : fields) {
+                            ParameterInfo info = new ParameterInfo();
+                            info.setName(field.getFieldName());
+                            info.setDescription(field.getComment());
+                            info.setGenericType(String.join(",",field.getGenericTypes()));
+                            info.setType(TypeExtractorUtil.typeStr2TypeNo(field.getFieldType()));
+                            deepField(field.getFieldType(), info);
+                            parameterInfoList.add(info);
+                        }
+                        parameterInfo.setChildList(parameterInfoList);
+                    }
+                }
+            } else {
+                parameterInfo.setChildList(new ArrayList<>());
+            }
+        }catch (Exception e) {
+            parameterInfo.setChildList(new ArrayList<>());
+            logger.error("deepField error: ", e);
+        }
+    }
     
     /**
      * 解析参数
@@ -292,9 +325,10 @@ public class SourceCodeApiParser {
         method.getParameters().forEach(param -> {
             ParameterInfo paramInfo = new ParameterInfo();
             paramInfo.setName(param.getNameAsString());
-            paramInfo.setType(param.getType().asString());
+            paramInfo.setType(TypeExtractorUtil.typeStr2TypeNo(param.getType().asString()));
             paramInfo.setPosition("body"); // 默认位置
-            
+            deepField(param.getType().asString(), paramInfo);
+
             // 解析参数注解
             if (param.getAnnotationByName("RequestParam").isPresent()) {
                 paramInfo.setPosition("query");
@@ -324,7 +358,7 @@ public class SourceCodeApiParser {
             
             parameters.add(paramInfo);
         });
-        
+
         apiInfo.setInputParameters(parameters);
     }
     
@@ -335,24 +369,39 @@ public class SourceCodeApiParser {
         String returnType = method.getType().asString();
         apiInfo.setReturnType(returnType);
         apiInfo.setReturnDescription("返回值类型: " + returnType);
+        List<ParameterInfo> infos = new ArrayList<>();
 
-        NodeList<ImportDeclaration> imports = cu.getImports();
+//        NodeList<ImportDeclaration> imports = cu.getImports();
 
         // 尝试解析返回类型的字段信息
         try {
-//            List<String> list = TypeExtractorUtil.extractTypesByLevel(returnType);
-
-
-            for (int i = 0; i < cus.size(); i++) {
-                CompilationUnit compilationUnit = cus.get(i);
-                PackageDeclaration packageDeclaration = compilationUnit.getPackageDeclaration().orElse(null);
-                NodeList<TypeDeclaration<?>> types = compilationUnit.getTypes();
+            if (!TypeExtractorUtil.isInternalType(returnType)) {
+                List<String> list = TypeExtractorUtil.extractTypesByLevel(returnType);
+                if (list.size() > 0) {
+                    ParameterInfo parameterInfo = new ParameterInfo();
+                    parameterInfo.setName("root");
+                    parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(list.get(0)));
+                    deepField(list.get(0), parameterInfo);
+                    infos.add(parameterInfo);
+                }
+            } else {
+                ParameterInfo parameterInfo = new ParameterInfo();
+                parameterInfo.setName("root");
+                parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(returnType));
+                parameterInfo.setChildList(new ArrayList<>());
+                infos.add(parameterInfo);
+            }
+            apiInfo.setReturnFields(infos);
+//            for (int i = 0; i < cus.size(); i++) {
+//                CompilationUnit compilationUnit = cus.get(i);
+//                PackageDeclaration packageDeclaration = compilationUnit.getPackageDeclaration().orElse(null);
+//                NodeList<TypeDeclaration<?>> types = compilationUnit.getTypes();
 
 //                cus.get(i).getClassByName(list.get(0)).ifPresent(v-> {
 //                    String className = v.getFullyQualifiedName().orElse("");
 //                    Class<?> clazz = tryLoadClass(className);
 //                });
-            }
+//            }
 //            resolveClassNameFromImports(returnType, imports);
             // 从返回类型字符串中提取类名
 //            String className = extractClassNameFromType(returnType);
@@ -367,11 +416,11 @@ public class SourceCodeApiParser {
         } catch (com.github.javaparser.resolution.UnsolvedSymbolException e) {
             // 处理无法解析的符号，尝试通过imports查找自定义类
             logger.debug("无法解析返回类型符号: {}, 尝试通过imports查找: {}", e.getMessage(), returnType);
-            tryResolveCustomClass(returnType, imports, apiInfo);
+//            tryResolveCustomClass(returnType, imports, apiInfo);
         } catch (Exception e) {
             // 忽略其他解析错误，尝试通过imports查找自定义类
             logger.debug("无法解析返回类型字段: {}, 尝试通过imports查找: {}", returnType, e.getMessage());
-            tryResolveCustomClass(returnType, imports, apiInfo);
+//            tryResolveCustomClass(returnType, imports, apiInfo);
         }
     }
     

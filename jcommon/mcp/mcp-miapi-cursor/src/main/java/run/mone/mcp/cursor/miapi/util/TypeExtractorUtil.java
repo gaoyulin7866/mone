@@ -2,6 +2,8 @@ package run.mone.mcp.cursor.miapi.util;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Slf4j
@@ -197,7 +199,24 @@ public class TypeExtractorUtil {
             return new ArrayList<>();
         }
 
-        // Java内部类型集合（包括基本类型、包装类、常用JDK类等）
+        List<String> result = new ArrayList<>();
+        for (String typeName : typeNames) {
+            if (typeName == null || typeName.trim().isEmpty()) {
+                continue;
+            }
+
+            String cleanTypeName = typeName.trim();
+
+            // 检查是否是Java内部类型
+            if (!isInternalType(cleanTypeName)) {
+                result.add(cleanTypeName);
+            }
+        }
+
+        return result;
+    }
+
+    public static boolean isInternalType (String type) {
         Set<String> javaInternalTypes = new HashSet<>(Arrays.asList(
                 // 基本类型
                 "byte", "short", "int", "long", "float", "double", "boolean", "char",
@@ -221,22 +240,39 @@ public class TypeExtractorUtil {
                 // 其他常用JDK类
                 "BigInteger", "BigDecimal", "Pattern", "Matcher", "LocalDate", "LocalDateTime"
         ));
+        return javaInternalTypes.contains(type);
+    }
 
-        List<String> result = new ArrayList<>();
-
-        for (String typeName : typeNames) {
-            if (typeName == null || typeName.trim().isEmpty()) {
-                continue;
-            }
-
-            String cleanTypeName = typeName.trim();
-
-            // 检查是否是Java内部类型
-            if (!javaInternalTypes.contains(cleanTypeName)) {
-                result.add(cleanTypeName);
-            }
+    public static String typeStr2TypeNo(String classType) {
+        if (null == classType) {
+            return "";
         }
-
-        return result;
+        if (classType.equals("Integer") || classType.equals("int")) {
+            return Type2NoEnum.INT_NO.getValue();
+        } else if (classType.equals("Byte") || classType.equals("byte")) {
+            return Type2NoEnum.BYTE_NO.getValue();
+        } else if (classType.equals("Long") || classType.equals("long")) {
+            return Type2NoEnum.LONG_NO.getValue();
+        } else if (classType.equals("Double") || classType.equals("double")) {
+            return Type2NoEnum.LONG_NO.getValue();
+        } else if (classType.equals("Float") || classType.equals("float")) {
+            return Type2NoEnum.FLOAT_NO.getValue();
+        } else if (classType.equals("String")) {
+            return Type2NoEnum.STRING_NO.getValue();
+        } else if (classType.equals("Character") || classType.equals("char")) {
+            return Type2NoEnum.STRING_NO.getValue();
+        } else if (classType.equals("Short") || classType.equals("short")) {
+            return Type2NoEnum.SHORT_NO.getValue();
+        } else if (classType.equals("Boolean") || classType.equals("boolean")) {
+            return Type2NoEnum.BOOLEAN_NO.getValue();
+        } else if (classType.equals("Date")) {
+            return Type2NoEnum.DATE_NO.getValue();
+        } else if (classType.equals("LocalDate") || classType.equals("LocalDateTime")) {
+            return Type2NoEnum.DATETIME_NO.getValue();
+        } else if (classType.equals("List") || classType.equals("ArrayList")) {
+            return Type2NoEnum.ARRAY_NO.getValue();
+        } else {
+            return Type2NoEnum.OBJ_NO.getValue();
+        }
     }
 }
