@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.model;
+package run.mone.mcp.cursor.miapi.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

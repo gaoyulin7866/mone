@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.tool;
+package run.mone.mcp.cursor.miapi.tool;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -8,10 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import run.mone.hive.roles.ReactorRole;
 import run.mone.hive.roles.tool.ITool;
-import run.mone.mcp.miapi.doc.http.HttpClient;
-import run.mone.mcp.miapi.doc.model.ParserResult;
-import run.mone.mcp.miapi.doc.parser.SourceCodeApiParser;
-import run.mone.mcp.miapi.doc.util.FileScanner;
+import run.mone.mcp.cursor.miapi.http.HttpClient;
+import run.mone.mcp.cursor.miapi.model.ParserResult;
+import run.mone.mcp.cursor.miapi.parser.SourceCodeApiParser;
+import run.mone.mcp.cursor.miapi.util.FileScanner;
+import run.mone.mcp.cursor.miapi.util.gitProjectUtil;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,10 @@ public class ApiDocTool implements ITool {
     @Value("${doc.host}")
     private String doc_host;
 
+    @Value("${git.username}")
+    private String gitUsername;
+    @Value("${git.token}")
+    private String gitToken;
     private static HttpClient httpClient = new HttpClient();
 
     private static final Gson gson = new Gson();
@@ -81,28 +86,73 @@ public class ApiDocTool implements ITool {
     @Override
     public JsonObject execute(ReactorRole role, JsonObject inputJson) {
         JsonObject result = new JsonObject();
-        try {
-            String directoryPath = inputJson.has("path") ? inputJson.get("path").getAsString() : null;
-            if (!FileScanner.isDirectoryExists(directoryPath)) {
-                result.addProperty("message", "代码路径或地址不正确");
-            }
-            String projectName = "";
-            String doc = parseDirectory(directoryPath);
-            if (directoryPath != null && directoryPath.endsWith(".git")) {
-                String[] split = directoryPath.split(".");
-                projectName = StringUtils.substringAfterLast(split[0], "/");
 
-            } else {
-                projectName = StringUtils.substringAfterLast(directoryPath, "/");
+        String directoryPath = inputJson.has("path") ? inputJson.get("path").getAsString() : null;
+        if (directoryPath == null || directoryPath.isEmpty()) {
+            result.addProperty("error", "缺少必要的代码路径参数");
+            return result;
+        }
+
+        try {
+            if (!FileScanner.isDirectoryExists(directoryPath)) {
+                result.addProperty("error", "代码路径或地址不正确");
+                return result;
             }
+            boolean isGit = directoryPath.endsWith(".git");
+            String projectName;
+            String actualDirectoryPath = directoryPath;
+
+            if (isGit) {
+                projectName = extractProjectNameFromGitUrl(directoryPath);
+                actualDirectoryPath = gitProjectUtil.cloneRepository(directoryPath, projectName, gitUsername, gitToken);
+
+                if (StringUtils.isBlank(actualDirectoryPath)) {
+                    result.addProperty("error", "Git仓库克隆失败: " + directoryPath);
+                    return result;
+                }
+            } else {
+                // 普通目录处理
+                projectName = StringUtils.substringAfterLast(directoryPath, "/");
+                if (StringUtils.isBlank(projectName)) {
+                    projectName = StringUtils.substringAfterLast(directoryPath, "\\");
+                }
+            }
+
+            // 解析目录并生成文档
+            String doc = parseDirectory(actualDirectoryPath);
+            if (StringUtils.isBlank(doc)) {
+                result.addProperty("error", "无法从目录中解析出文档: " + actualDirectoryPath);
+                return result;
+            }
+
+            // 更新文档到数据库
             int projectId = updateDoc(doc, projectName);
+            if (projectId <= 0) {
+                result.addProperty("error", "文档更新到平台失败");
+                return result;
+            }
+            if (isGit && actualDirectoryPath != null) {
+                try {
+                    FileScanner.deleteDirectory(actualDirectoryPath);
+                } catch (Exception e) {
+                    log.warn("清理临时目录失败: {}", actualDirectoryPath, e);
+                }
+            }
+
+            // 构建成功响应
             result.addProperty("apiDocs", doc);
             result.addProperty("apiDocsUrl", doc_host + projectId);
             return result;
+
         } catch (Exception e) {
             result.addProperty("error", "生成接口信息失败: " + e.getMessage());
             return result;
         }
+    }
+
+    private String extractProjectNameFromGitUrl(String gitUrl) {
+        String withoutGit = gitUrl.substring(0, gitUrl.length() - 4);
+        return StringUtils.substringAfterLast(withoutGit, "/");
     }
 
     private String parseDirectory(String directoryPath) {

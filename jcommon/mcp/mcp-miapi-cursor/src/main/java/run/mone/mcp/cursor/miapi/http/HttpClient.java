@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.http;
+package run.mone.mcp.cursor.miapi.http;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

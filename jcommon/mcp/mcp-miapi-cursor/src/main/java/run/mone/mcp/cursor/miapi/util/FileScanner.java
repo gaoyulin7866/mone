@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.util;
+package run.mone.mcp.cursor.miapi.util;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -174,5 +175,35 @@ public class FileScanner {
         }
 
         return allFiles;
+    }
+
+    public static boolean createDirectory(String directoryPath) {
+        File directory = new File(directoryPath);
+
+        if (directory.exists()) {
+            return true;
+        }
+
+        boolean result = directory.mkdirs();
+        if (!result) {
+            log.error("目录创建失败: {}", directoryPath);
+        }
+        return result;
+    }
+
+    public static boolean deleteDirectory(String directoryPath) {
+        try {
+            Path path = Paths.get(directoryPath);
+            if (Files.exists(path)) {
+                Files.walk(path)
+                        .sorted(Comparator.reverseOrder()) // 先删除文件，再删除目录
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+            }
+            return true;
+        } catch (IOException e) {
+            log.error("删除目录失败: {}", e.getMessage());
+            return false;
+        }
     }
 }

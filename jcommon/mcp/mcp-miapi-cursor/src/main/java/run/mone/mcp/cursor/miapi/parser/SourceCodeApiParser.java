@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.parser;
+package run.mone.mcp.cursor.miapi.parser;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
@@ -20,11 +20,10 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeS
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import run.mone.mcp.miapi.doc.model.ApiInfo;
-import run.mone.mcp.miapi.doc.model.ParameterInfo;
-import run.mone.mcp.miapi.doc.model.ParserResult;
-import run.mone.mcp.miapi.doc.util.FileScanner;
-import run.mone.mcp.miapi.doc.util.TypeExtractorUtil;
+import run.mone.mcp.cursor.miapi.model.ApiInfo;
+import run.mone.mcp.cursor.miapi.model.ParameterInfo;
+import run.mone.mcp.cursor.miapi.model.ParserResult;
+import run.mone.mcp.cursor.miapi.util.FileScanner;
 
 import java.io.File;
 import java.io.FileNotFoundException;

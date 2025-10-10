@@ -1,4 +1,4 @@
-package run.mone.mcp.miapi.doc.util;
+package run.mone.mcp.cursor.miapi.util;
 
 import lombok.extern.slf4j.Slf4j;
 
