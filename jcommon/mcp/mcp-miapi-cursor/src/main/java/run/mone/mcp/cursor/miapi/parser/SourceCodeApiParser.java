@@ -5,10 +5,8 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
@@ -43,6 +41,8 @@ public class SourceCodeApiParser {
     private final List<CompilationUnit> cus = new ArrayList<>();
 
     private String codeRoot = "";
+
+    private Integer batchSize = 20;
     
     public SourceCodeApiParser() {
         this(null);
@@ -126,16 +126,33 @@ public class SourceCodeApiParser {
                 result.setErrorMessage("目录下没有找到Java文件: " + directoryPath);
                 return result;
             }
-            
-            for (String filePath : javaFiles) {
-                parseFile(filePath);
+            for (int i = 0; i < javaFiles.size(); i+=batchSize) {
+                logger.info("javaFiles: {}", i + batchSize);
+                List<String> list = javaFiles.subList(i, Math.min(i + batchSize, javaFiles.size()));
+                list.forEach(this::parseFile);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    logger.error("解析失败: ", e);
+                    break;
+                }
             }
 
-            for (int i = 0; i < cus.size(); i++) {
-                ParserResult fileResult = new ParserResult();
-                result.setSuccess(true);
-                parseCompilationUnit(cus.get(i), fileResult);
-                mergeResults(result, fileResult);
+            for (int i = 0; i < cus.size(); i+=batchSize) {
+                logger.info("cus: {}", i + batchSize);
+                List<CompilationUnit> compilationUnits = cus.subList(i, Math.min(i + batchSize, cus.size()));
+                for (CompilationUnit compilationUnit : compilationUnits) {
+                    ParserResult fileResult = new ParserResult();
+                    result.setSuccess(true);
+                    parseCompilationUnit(compilationUnit, fileResult);
+                    mergeResults(result, fileResult);
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    logger.error("解析失败: ", e);
+                    break;
+                }
             }
 
 
