@@ -2,8 +2,13 @@ package run.mone.mcp.cursor.miapi.parser;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.type.TypeParameter;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,13 +16,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ClassFieldExtractor {
     public static class FieldInfo {
         private String fieldName;
         private String fieldType;
         private List<String> genericTypes = new ArrayList<>();
+        private Type classType;
         private String comment;
 
         // getters and setters
@@ -33,6 +41,14 @@ public class ClassFieldExtractor {
         public String getComment() { return comment; }
         public void setComment(String comment) { this.comment = comment; }
 
+        public Type getClassType() {
+            return classType;
+        }
+
+        public void setClassType(Type classType) {
+            this.classType = classType;
+        }
+
         @Override
         public String toString() {
             return String.format("Field{name='%s', type='%s', generics=%s}",
@@ -43,12 +59,12 @@ public class ClassFieldExtractor {
     /**
      * 根据类名扫描项目目录查找类文件
      */
-    public static List<FieldInfo> findClassAndExtractFields(String className, String projectRoot) throws IOException {
+    public static List<FieldInfo> findClassAndExtractFields(String className, String projectRoot, List<Node> nodes) throws IOException {
         List<File> classFiles = findClassFiles(className, projectRoot);
         List<FieldInfo> allFields = new ArrayList<>();
 
         for (File file : classFiles) {
-            allFields.addAll(parseJavaFile(file));
+            allFields.addAll(parseJavaFile(file, nodes));
         }
 
         return allFields;
@@ -89,13 +105,20 @@ public class ClassFieldExtractor {
     /**
      * 解析Java文件提取字段信息
      */
-    private static List<FieldInfo> parseJavaFile(File javaFile) throws IOException {
+    private static List<FieldInfo> parseJavaFile(File javaFile, List<Node> nodes) throws IOException {
         List<FieldInfo> fieldInfos = new ArrayList<>();
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
 
         cu.findAll(ClassOrInterfaceDeclaration.class).forEach(classDecl -> {
+            Map<String, Type> typeMap = new HashMap<>();
+            NodeList<TypeParameter> typeParameters = classDecl.getTypeParameters();
+            if (typeParameters != null && typeParameters.size()>0) {
+                for (int i = 0; i < typeParameters.size(); i++) {
+                    typeMap.put(typeParameters.get(i).getNameAsString(), (Type) nodes.get(i));
+                }
+            }
             classDecl.getFields().forEach(field -> {
-                FieldInfo fieldInfo = extractFieldInfo(field);
+                FieldInfo fieldInfo = extractFieldInfo(field, typeMap);
                 fieldInfos.add(fieldInfo);
             });
         });
@@ -106,12 +129,23 @@ public class ClassFieldExtractor {
     /**
      * 提取单个字段的详细信息
      */
-    private static FieldInfo extractFieldInfo(FieldDeclaration field) {
+    private static FieldInfo extractFieldInfo(FieldDeclaration field, Map<String, Type> typeMap) {
         FieldInfo fieldInfo = new FieldInfo();
-
         // 获取字段类型
         String fieldType = field.getElementType().toString();
-        fieldInfo.setFieldType(fieldType);
+        if (typeMap.get(fieldType) != null) {
+            Type elementType = typeMap.get(fieldType).getElementType();
+            fieldInfo.setClassType(elementType);
+            if (elementType.isClassOrInterfaceType()) {
+                String name = ((ClassOrInterfaceType) elementType).getName().asString();
+                fieldInfo.setFieldType(name);
+            } else {
+                fieldInfo.setFieldType(typeMap.get(fieldType).getElementType().asString());
+            }
+        } else {
+            fieldInfo.setClassType(field.getElementType());
+            fieldInfo.setFieldType(fieldType);
+        }
 
         // 获取字段名
         field.getVariables().forEach(variable -> {

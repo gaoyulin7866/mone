@@ -1,6 +1,9 @@
 package run.mone.mcp.cursor.miapi.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
+import run.mone.mcp.cursor.miapi.util.TypeExtractorUtil;
 
 import java.util.List;
 
@@ -20,6 +23,9 @@ public class ParameterInfo {
      */
     @JsonProperty("type")
     private String type;
+
+    @JsonProperty("classType")
+    private Type classType;
     
     /**
      * 参数描述
@@ -59,13 +65,14 @@ public class ParameterInfo {
     public ParameterInfo() {
     }
 
-    public ParameterInfo(String name, String type, String description, boolean required, String position, List<ParameterInfo> list) {
+    public ParameterInfo(String name, Type type, String description, boolean required, String position, List<ParameterInfo> list) {
         this.name = name;
-        this.type = type;
+        this.classType = type;
         this.description = description;
         this.required = required;
         this.position = position;
         this.childList = list;
+        this.type = type.asString();
     }
 
     public String getName() {
@@ -130,6 +137,19 @@ public class ParameterInfo {
 
     public void setChildList(List<ParameterInfo> childList) {
         this.childList = childList;
+    }
+
+    public Type getClassType() {
+        return classType;
+    }
+
+    public void setClassType(Type classType) {
+        if (TypeExtractorUtil.isInternalType(classType)) {
+            this.type = TypeExtractorUtil.typeStr2TypeNo(TypeExtractorUtil.getPrimitiveSimpleName(classType));
+        } else {
+            this.type = TypeExtractorUtil.typeStr2TypeNo(classType.asString());
+        }
+        this.classType = classType;
     }
 
     @Override

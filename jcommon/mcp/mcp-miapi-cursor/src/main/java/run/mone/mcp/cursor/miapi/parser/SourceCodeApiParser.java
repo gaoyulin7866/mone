@@ -3,14 +3,12 @@ package run.mone.mcp.cursor.miapi.parser;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.ImportDeclaration;
-import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.expr.AnnotationExpr;
-import com.github.javaparser.ast.expr.NormalAnnotationExpr;
-import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
-import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -304,12 +302,17 @@ public class SourceCodeApiParser {
         apiInfo.setPath(fullPath);
     }
 
-    private void deepField (String type, ParameterInfo parameterInfo) {
+    private void deepField (Type type, ParameterInfo parameterInfo) {
+        List<ParameterInfo> children = new ArrayList<>();
+        parameterInfo.setChildList(children);
         try {
             if (!TypeExtractorUtil.isInternalType(type)) {
-                List<String> list = TypeExtractorUtil.extractTypesByLevel(type);
-                if (list.size() > 0) {
-                    List<ClassFieldExtractor.FieldInfo> fields = ClassFieldExtractor.findClassAndExtractFields(list.get(0), codeRoot);
+                List<Node> childNodes = ((Node) type).getChildNodes();
+                List<Node> nodes = childNodes.subList(1, childNodes.size());
+                String className = ((ClassOrInterfaceType)type).getName().asString();
+//                List<String> list = TypeExtractorUtil.extractTypesByLevel(type.asString());
+                if (className != null) {
+                    List<ClassFieldExtractor.FieldInfo> fields = ClassFieldExtractor.findClassAndExtractFields(className, codeRoot, nodes);
                     if (fields.size() > 0) {
                         List<ParameterInfo> parameterInfoList = new ArrayList<>();
                         for (ClassFieldExtractor.FieldInfo field : fields) {
@@ -318,21 +321,22 @@ public class SourceCodeApiParser {
                             info.setDescription(field.getComment());
                             info.setGenericType(String.join(",",field.getGenericTypes()));
                             info.setType(TypeExtractorUtil.typeStr2TypeNo(field.getFieldType()));
-                            deepField(field.getFieldType(), info);
+                            deepField(field.getClassType(), info);
                             parameterInfoList.add(info);
                         }
                         parameterInfo.setChildList(parameterInfoList);
+                    } else {
+                        parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(TypeExtractorUtil.getPrimitiveSimpleName(type)));
                     }
                 }
             } else {
-                parameterInfo.setChildList(new ArrayList<>());
+                parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(TypeExtractorUtil.getPrimitiveSimpleName(type)));
             }
         }catch (Exception e) {
-            parameterInfo.setChildList(new ArrayList<>());
             logger.error("deepField error: ", e);
         }
     }
-    
+
     /**
      * 解析参数
      */
@@ -342,10 +346,9 @@ public class SourceCodeApiParser {
         method.getParameters().forEach(param -> {
             ParameterInfo paramInfo = new ParameterInfo();
             paramInfo.setName(param.getNameAsString());
-            paramInfo.setType(TypeExtractorUtil.typeStr2TypeNo(param.getType().asString()));
+            paramInfo.setClassType(param.getType());
             paramInfo.setPosition("body"); // 默认位置
-            deepField(param.getType().asString(), paramInfo);
-
+            deepField(param.getType(), paramInfo);
             // 解析参数注解
             if (param.getAnnotationByName("RequestParam").isPresent()) {
                 paramInfo.setPosition("query");
@@ -386,213 +389,12 @@ public class SourceCodeApiParser {
         String returnType = method.getType().asString();
         apiInfo.setReturnType(returnType);
         apiInfo.setReturnDescription("返回值类型: " + returnType);
-        List<ParameterInfo> infos = new ArrayList<>();
-
-//        NodeList<ImportDeclaration> imports = cu.getImports();
-
-        // 尝试解析返回类型的字段信息
-        try {
-            if (!TypeExtractorUtil.isInternalType(returnType)) {
-                List<String> list = TypeExtractorUtil.extractTypesByLevel(returnType);
-                if (list.size() > 0) {
-                    ParameterInfo parameterInfo = new ParameterInfo();
-                    parameterInfo.setName("root");
-                    parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(list.get(0)));
-                    deepField(list.get(0), parameterInfo);
-                    infos.add(parameterInfo);
-                }
-            } else {
-                ParameterInfo parameterInfo = new ParameterInfo();
-                parameterInfo.setName("root");
-                parameterInfo.setType(TypeExtractorUtil.typeStr2TypeNo(returnType));
-                parameterInfo.setChildList(new ArrayList<>());
-                infos.add(parameterInfo);
-            }
-            apiInfo.setReturnFields(infos);
-//            for (int i = 0; i < cus.size(); i++) {
-//                CompilationUnit compilationUnit = cus.get(i);
-//                PackageDeclaration packageDeclaration = compilationUnit.getPackageDeclaration().orElse(null);
-//                NodeList<TypeDeclaration<?>> types = compilationUnit.getTypes();
-
-//                cus.get(i).getClassByName(list.get(0)).ifPresent(v-> {
-//                    String className = v.getFullyQualifiedName().orElse("");
-//                    Class<?> clazz = tryLoadClass(className);
-//                });
-//            }
-//            resolveClassNameFromImports(returnType, imports);
-            // 从返回类型字符串中提取类名
-//            String className = extractClassNameFromType(returnType);
-//            if (className != null && !isBasicType(className)) {
-//                // 尝试不同的包名组合
-//                Class<?> clazz = tryLoadClass(className);
-//                if (clazz != null) {
-//                    List<ParameterInfo> returnFields = ReturnTypeFieldParser.parseReturnFields(clazz);
-//                    apiInfo.setReturnFields(returnFields);
-//                }
-//            }
-        } catch (com.github.javaparser.resolution.UnsolvedSymbolException e) {
-            // 处理无法解析的符号，尝试通过imports查找自定义类
-            logger.debug("无法解析返回类型符号: {}, 尝试通过imports查找: {}", e.getMessage(), returnType);
-//            tryResolveCustomClass(returnType, imports, apiInfo);
-        } catch (Exception e) {
-            // 忽略其他解析错误，尝试通过imports查找自定义类
-            logger.debug("无法解析返回类型字段: {}, 尝试通过imports查找: {}", returnType, e.getMessage());
-//            tryResolveCustomClass(returnType, imports, apiInfo);
-        }
+        ParameterInfo paramInfo = new ParameterInfo();
+        paramInfo.setName("root");
+        paramInfo.setClassType(method.getType());
+        deepField(method.getType(), paramInfo);
+        apiInfo.setReturnFields(List.of(paramInfo));
     }
-    
-    /**
-     * 尝试通过imports解析自定义类
-     */
-    private void tryResolveCustomClass(String returnType, NodeList<ImportDeclaration> imports, ApiInfo apiInfo) {
-        // 从返回类型中提取类名
-        String className = extractClassNameFromType(returnType);
-        if (className == null || isBasicType(className)) {
-            return;
-        }
-        
-        logger.debug("尝试解析自定义类: {}", className);
-        
-        // 尝试通过imports查找完整的类名
-        String fullClassName = resolveClassNameFromImports(className, imports);
-        if (fullClassName != null) {
-            logger.debug("通过imports找到完整类名: {}", fullClassName);
-            try {
-                Class<?> clazz = Class.forName(fullClassName);
-                List<ParameterInfo> returnFields = ReturnTypeFieldParser.parseReturnFields(clazz);
-                apiInfo.setReturnFields(returnFields);
-                apiInfo.setReturnDescription("返回值类型: " + returnType + " (已解析字段信息)");
-                logger.debug("成功解析自定义类字段: {}, 字段数: {}", fullClassName, returnFields.size());
-            } catch (ClassNotFoundException e) {
-                logger.debug("无法加载类: {}, 错误: {}", fullClassName, e.getMessage());
-                apiInfo.setReturnDescription("返回值类型: " + returnType + " (无法加载类: " + fullClassName + ")");
-            } catch (Exception e) {
-                logger.debug("解析类字段失败: {}, 错误: {}", fullClassName, e.getMessage());
-                apiInfo.setReturnDescription("返回值类型: " + returnType + " (解析字段失败: " + e.getMessage() + ")");
-            }
-        } else {
-            logger.debug("无法通过imports找到类: {}", className);
-            apiInfo.setReturnDescription("返回值类型: " + returnType + " (无法解析详细信息)");
-        }
-    }
-    
-    /**
-     * 通过imports解析类名
-     */
-    private String resolveClassNameFromImports(String className, NodeList<ImportDeclaration> imports) {
-        // 首先检查是否有直接导入的类
-        for (ImportDeclaration importDecl : imports) {
-            String importName = importDecl.getNameAsString();
-            String importedClassName = getClassNameFromImport(importName);
-            
-            if (className.equals(importedClassName)) {
-                logger.debug("找到直接导入的类: {} -> {}", className, importName);
-                return importName;
-            }
-        }
-        
-        // 检查是否有通配符导入（*号导入）
-        for (ImportDeclaration importDecl : imports) {
-            String packageName = importDecl.getNameAsString();
-            if (packageName.endsWith(".*")) {
-                packageName = packageName.substring(0, packageName.length() - 2);
-            }
-            String fullClassName = packageName + "." + className;
-
-            // 尝试加载这个类来验证是否存在
-            try {
-                Class.forName(fullClassName);
-                logger.debug("找到通配符导入的类: {} -> {}", className, fullClassName);
-                return fullClassName;
-            } catch (ClassNotFoundException e) {
-                // 继续尝试下一个包
-                logger.debug("通配符导入包 {} 中未找到类: {}", packageName, className);
-            }
-        }
-        
-        return null;
-    }
-    
-    /**
-     * 从导入语句中提取类名
-     */
-    private String getClassNameFromImport(String importName) {
-        if (importName.contains(".")) {
-            return importName.substring(importName.lastIndexOf(".") + 1);
-        }
-        return importName;
-    }
-    
-    /**
-     * 从类型字符串中提取类名
-     */
-    private String extractClassNameFromType(String typeString) {
-        // 处理泛型类型，如 ResponseEntity<Map<String,Object>>
-        if (typeString.contains("<")) {
-            // 提取泛型参数
-            int start = typeString.indexOf('<');
-            int end = typeString.lastIndexOf('>');
-            if (start > 0 && end > start) {
-                String genericParam = typeString.substring(start + 1, end);
-                // 取第一个泛型参数
-                if (genericParam.contains(",")) {
-                    genericParam = genericParam.substring(0, genericParam.indexOf(',')).trim();
-                }
-                return genericParam;
-            }
-        }
-        
-        // 处理简单类型
-        return typeString;
-    }
-    
-    /**
-     * 尝试加载类
-     */
-    private Class<?> tryLoadClass(String className) {
-        // 尝试直接加载
-        try {
-            return Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            // 尝试从当前类路径中查找
-            try {
-                // 使用当前线程的类加载器
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                if (classLoader != null) {
-                    return classLoader.loadClass(className);
-                }
-            } catch (ClassNotFoundException ignored) {
-                // 继续尝试其他方法
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * 判断是否是基本类型
-     */
-    private boolean isBasicType(String typeName) {
-        return typeName.equals("String") ||
-               typeName.equals("int") ||
-               typeName.equals("Integer") ||
-               typeName.equals("long") ||
-               typeName.equals("Long") ||
-               typeName.equals("double") ||
-               typeName.equals("Double") ||
-               typeName.equals("float") ||
-               typeName.equals("Float") ||
-               typeName.equals("boolean") ||
-               typeName.equals("Boolean") ||
-               typeName.equals("char") ||
-               typeName.equals("Character") ||
-               typeName.equals("byte") ||
-               typeName.equals("Byte") ||
-               typeName.equals("short") ||
-               typeName.equals("Short") ||
-               typeName.equals("void") ||
-               typeName.equals("Void");
-    }
-    
     /**
      * 获取注解值
      */
