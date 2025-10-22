@@ -36,8 +36,6 @@ public class SourceCodeApiParser {
     private static final Logger logger = LoggerFactory.getLogger(SourceCodeApiParser.class);
     private final JavaParser javaParser;
 
-    private final List<CompilationUnit> cus = new ArrayList<>();
-
     private String codeRoot = "";
 
     private Integer batchSize = 20;
@@ -53,21 +51,21 @@ public class SourceCodeApiParser {
         typeSolver.add(new ReflectionTypeSolver());
         
         // 添加JavaParserTypeSolver来解析项目中的自定义类型
-        if (sourcePath != null && !sourcePath.isEmpty()) {
-            try {
-                File sourceDir = new File(sourcePath);
-                if (sourceDir.exists() && sourceDir.isDirectory()) {
-                    typeSolver.add(new JavaParserTypeSolver(sourceDir));
-                    logger.debug("已添加JavaParserTypeSolver，源码路径: {}", sourcePath);
-                } else {
-                    logger.warn("指定的源码路径不存在或不是目录: {}", sourcePath);
-                }
-            } catch (Exception e) {
-                logger.warn("无法配置JavaParserTypeSolver: {}", e.getMessage());
-            }
-        } else {
-            logger.debug("未提供源码路径，跳过JavaParserTypeSolver配置");
-        }
+//        if (sourcePath != null && !sourcePath.isEmpty()) {
+//            try {
+//                File sourceDir = new File(sourcePath);
+//                if (sourceDir.exists() && sourceDir.isDirectory()) {
+//                    typeSolver.add(new JavaParserTypeSolver(sourceDir));
+//                    logger.debug("已添加JavaParserTypeSolver，源码路径: {}", sourcePath);
+//                } else {
+//                    logger.warn("指定的源码路径不存在或不是目录: {}", sourcePath);
+//                }
+//            } catch (Exception e) {
+//                logger.warn("无法配置JavaParserTypeSolver: {}", e.getMessage());
+//            }
+//        } else {
+//            logger.debug("未提供源码路径，跳过JavaParserTypeSolver配置");
+//        }
         
         // 创建ParserConfiguration并设置SymbolResolver
         ParserConfiguration config = new ParserConfiguration();
@@ -75,33 +73,6 @@ public class SourceCodeApiParser {
         
         this.javaParser = new JavaParser(config);
         logger.debug("SourceCodeApiParser初始化完成，已配置SymbolResolver");
-    }
-    
-    /**
-     * 解析单个Java文件
-     * @param filePath 文件路径
-     * @return 解析结果
-     */
-    public void parseFile(String filePath) {
-        logger.debug("开始解析文件: {}", filePath);
-        try {
-            File file = new File(filePath);
-            if (!file.exists()) {
-                logger.warn("文件不存在: {}", filePath);
-            }
-            
-            CompilationUnit cu = javaParser.parse(file).getResult().orElse(null);
-            if (cu == null) {
-                logger.warn("无法解析Java文件CompilationUnit: {}", filePath);
-            }
-            // 解析类信息
-            cus.add(cu);
-
-        } catch (FileNotFoundException e) {
-            logger.error("文件未找到: {}", filePath, e);
-        } catch (Exception e) {
-            logger.error("解析文件失败: {}", filePath, e);
-        }
     }
     
     /**
@@ -127,7 +98,28 @@ public class SourceCodeApiParser {
             for (int i = 0; i < javaFiles.size(); i+=batchSize) {
                 logger.info("javaFiles: {}", i + batchSize);
                 List<String> list = javaFiles.subList(i, Math.min(i + batchSize, javaFiles.size()));
-                list.forEach(this::parseFile);
+                list.forEach(filePath-> {
+                    logger.debug("开始解析文件: {}", filePath);
+                    try {
+                        File file = new File(filePath);
+                        if (!file.exists()) {
+                            logger.warn("文件不存在: {}", filePath);
+                        }
+
+                        CompilationUnit cu = javaParser.parse(file).getResult().orElse(null);
+                        if (cu == null) {
+                            logger.warn("无法解析Java文件CompilationUnit: {}", filePath);
+                        }
+                        ParserResult fileResult = new ParserResult();
+                        result.setSuccess(true);
+                        parseCompilationUnit(cu, fileResult);
+                        mergeResults(result, fileResult);
+                    } catch (FileNotFoundException e) {
+                        logger.error("文件未找到: {}", filePath, e);
+                    } catch (Exception e) {
+                        logger.error("解析文件失败: {}", filePath, e);
+                    }
+                });
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
@@ -135,26 +127,6 @@ public class SourceCodeApiParser {
                     break;
                 }
             }
-
-            for (int i = 0; i < cus.size(); i+=batchSize) {
-                logger.info("cus: {}", i + batchSize);
-                List<CompilationUnit> compilationUnits = cus.subList(i, Math.min(i + batchSize, cus.size()));
-                for (CompilationUnit compilationUnit : compilationUnits) {
-                    ParserResult fileResult = new ParserResult();
-                    result.setSuccess(true);
-                    parseCompilationUnit(compilationUnit, fileResult);
-                    mergeResults(result, fileResult);
-                }
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    logger.error("解析失败: ", e);
-                    break;
-                }
-            }
-
-
-            
             // 处理相同地址的区分
             processDuplicatePaths(result);
             logger.info("目录解析完成: {}, 总接口数: {}", directoryPath, result.getParsedApiCount());

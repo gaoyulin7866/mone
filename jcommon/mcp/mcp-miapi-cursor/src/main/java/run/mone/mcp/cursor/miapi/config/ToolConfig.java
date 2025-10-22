@@ -51,7 +51,7 @@ public class ToolConfig {
                         new SpeechToTextTool(),
                         new TextToSpeechTool()))
                 //mcp工具
-                .mcpTools(Lists.newArrayList(new ChatFunction(agentName, 30000)))
+                .mcpTools(Lists.newArrayList(new ChatFunction(agentName, 10 * 60 * 1000)))
                 .build();
     }
 }
