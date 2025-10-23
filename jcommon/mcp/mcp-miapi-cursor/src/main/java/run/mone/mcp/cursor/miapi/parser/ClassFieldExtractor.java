@@ -9,6 +9,8 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.TypeParameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ClassFieldExtractor {
+    private static final Logger logger = LoggerFactory.getLogger(ClassFieldExtractor.class);
     public static class FieldInfo {
         private String fieldName;
         private String fieldType;
@@ -114,7 +117,13 @@ public class ClassFieldExtractor {
             NodeList<TypeParameter> typeParameters = classDecl.getTypeParameters();
             if (typeParameters != null && typeParameters.size()>0) {
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    typeMap.put(typeParameters.get(i).getNameAsString(), (Type) nodes.get(i));
+                    if(nodes.size()>0 && nodes.get(i) != null) {
+                        try {
+                            typeMap.put(typeParameters.get(i).getNameAsString(), (Type) nodes.get(i));
+                        }catch (Exception e) {
+                            logger.error("parseJavaFile error: {}", classDecl.toString());
+                        }
+                    }
                 }
             }
             classDecl.getFields().forEach(field -> {

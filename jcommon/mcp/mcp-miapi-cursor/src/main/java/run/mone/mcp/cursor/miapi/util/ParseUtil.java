@@ -164,7 +164,10 @@ public class ParseUtil {
         try {
             if (!TypeExtractorUtil.isInternalType(type)) {
                 List<Node> childNodes = ((Node) type).getChildNodes();
-                List<Node> nodes = childNodes.subList(1, childNodes.size());
+                List<Node> nodes = new ArrayList<>();
+                if (childNodes != null && childNodes.size()>0) {
+                    nodes = childNodes.subList(1, childNodes.size());
+                }
                 String className = ((ClassOrInterfaceType)type).getName().asString();
 //                List<String> list = TypeExtractorUtil.extractTypesByLevel(type.asString());
                 if (className != null) {

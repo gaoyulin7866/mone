@@ -71,20 +71,22 @@ public class SourceCodeApiParser {
                 logger.info("javaFiles: {}", i + batchSize);
                 List<String> list = javaFiles.subList(i, Math.min(i + batchSize, javaFiles.size()));
                 list.forEach(filePath-> {
-                    logger.debug("开始解析文件: {}", filePath);
+                    logger.info("开始解析文件: {}", filePath);
                     try {
                         File file = new File(filePath);
-                        if (!file.exists()) {
-                            logger.warn("文件不存在: {}", filePath);
+                        if (file.exists()) {
+                            CompilationUnit cu = javaParser.parse(file).getResult().orElse(null);
+                            if (cu == null) {
+                                logger.error("无法解析Java文件CompilationUnit: {}", filePath);
+                            } else {
+                                ParserResult fileResult = new ParserResult();
+                                result.setSuccess(true);
+                                ParseUtil.parseCompilationUnit(cu, fileResult, codeRoot);
+                                ParseUtil.mergeResults(result, fileResult);
+                            }
+                        } else {
+                            logger.error("文件不存在: {}", filePath);
                         }
-                        CompilationUnit cu = javaParser.parse(file).getResult().orElse(null);
-                        if (cu == null) {
-                            logger.warn("无法解析Java文件CompilationUnit: {}", filePath);
-                        }
-                        ParserResult fileResult = new ParserResult();
-                        result.setSuccess(true);
-                        ParseUtil.parseCompilationUnit(cu, fileResult, codeRoot);
-                        ParseUtil.mergeResults(result, fileResult);
                     } catch (FileNotFoundException e) {
                         logger.error("文件未找到: {}", filePath, e);
                     } catch (Exception e) {
