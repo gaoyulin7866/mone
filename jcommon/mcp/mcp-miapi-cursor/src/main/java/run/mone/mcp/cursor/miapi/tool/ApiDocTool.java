@@ -175,7 +175,7 @@ public class ApiDocTool implements ITool {
         try {
             Map<String, Object> map = new HashMap<>();
             map.put("docs", docs);
-            map.put("groupId", "89");
+            map.put("groupId", "620");
             map.put("projectName", projectName);
             JsonObject response = httpClient.post(host + api_url, gson.toJson(map));
             return response.get("data").getAsInt();

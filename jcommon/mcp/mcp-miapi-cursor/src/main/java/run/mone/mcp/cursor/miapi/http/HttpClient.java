@@ -3,7 +3,7 @@ package run.mone.mcp.cursor.miapi.http;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import okhttp3.*;
-
+import java.util.concurrent.TimeUnit;
 import java.io.IOException;
 
 public class HttpClient {
@@ -11,7 +11,11 @@ public class HttpClient {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     public HttpClient() {
-        this.client = new OkHttpClient();
+        this.client = new OkHttpClient().newBuilder()
+                .connectTimeout(600, TimeUnit.SECONDS)      // 连接超时
+                .readTimeout(600, TimeUnit.SECONDS)         // 读取超时
+                .writeTimeout(600, TimeUnit.SECONDS)        // 写入超时
+                .build();
     }
 
     public JsonObject get(String url) throws IOException {
