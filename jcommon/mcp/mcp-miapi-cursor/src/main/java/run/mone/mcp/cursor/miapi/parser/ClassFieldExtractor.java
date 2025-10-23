@@ -6,6 +6,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.TypeParameter;
@@ -17,13 +18,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class ClassFieldExtractor {
     private static final Logger logger = LoggerFactory.getLogger(ClassFieldExtractor.class);
+    private static final ConcurrentHashMap<String, List<File>> classFiles = new ConcurrentHashMap<>();
     public static class FieldInfo {
         private String fieldName;
         private String fieldType;
@@ -76,20 +77,46 @@ public class ClassFieldExtractor {
     /**
      * 在项目目录中递归查找类文件
      */
-    private static List<File> findClassFiles(String className, String projectRoot) throws IOException {
-        List<File> result = new ArrayList<>();
+    private static List<File> findClassFiles(String className, String projectRoot) {
         Path startPath = Paths.get(projectRoot);
 
-        Files.walk(startPath)
-                .filter(path -> path.toString().endsWith(".java"))
-                .forEach(path -> {
-                    File file = path.toFile();
-                    if (isTargetClass(file, className)) {
-                        result.add(file);
-                    }
-                });
+        if (classFiles == null || classFiles.isEmpty()) {
+            try (var stream = Files.walk(startPath)) {
+                stream.filter(path -> path.toString().endsWith(".java"))
+                        .map(Path::toFile)
+                        .forEach(file -> {
+                            List<String> classNames = getClassNames(file);
+                            classNames.forEach(name ->
+                                    classFiles.compute(name, (k, v) -> {
+                                        List<File> files = (v == null) ? new ArrayList<>() : v;
+                                        files.add(file);
+                                        return files;
+                                    })
+                            );
+                        });
 
-        return result;
+                // 使用新的集合API优化结果返回
+                return classFiles.getOrDefault(className, List.of());
+
+            } catch (Exception e) {
+                logger.error("findClassFiles error:", e);
+                clearCache();
+                return List.of();
+            }
+        }
+
+        // 使用SequencedMap的getOrDefault
+        return classFiles.getOrDefault(className, List.of());
+    }
+
+    private static List<String> getClassNames(File javaFile) {
+        try {
+            CompilationUnit cu = StaticJavaParser.parse(javaFile);
+            return cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                    .map(NodeWithSimpleName::getNameAsString).collect(Collectors.toList());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -177,5 +204,13 @@ public class ClassFieldExtractor {
         }
 
         return fieldInfo;
+    }
+
+    public static void clearCache () {
+        try {
+            classFiles.clear();
+        }catch (Exception e) {
+            logger.error("clearCache error:", e);
+        }
     }
 }

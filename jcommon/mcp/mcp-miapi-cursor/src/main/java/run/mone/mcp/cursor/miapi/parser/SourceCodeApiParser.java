@@ -68,7 +68,6 @@ public class SourceCodeApiParser {
                 return result;
             }
             for (int i = 0; i < javaFiles.size(); i+=batchSize) {
-                logger.info("javaFiles: {}", i + batchSize);
                 List<String> list = javaFiles.subList(i, Math.min(i + batchSize, javaFiles.size()));
                 list.forEach(filePath-> {
                     logger.info("开始解析文件: {}", filePath);
@@ -107,6 +106,8 @@ public class SourceCodeApiParser {
             logger.error("解析目录失败: {}", directoryPath, e);
             result.setSuccess(false);
             result.setErrorMessage("解析目录失败: " + e.getMessage());
+        } finally {
+            ClassFieldExtractor.clearCache();
         }
         
         return result;

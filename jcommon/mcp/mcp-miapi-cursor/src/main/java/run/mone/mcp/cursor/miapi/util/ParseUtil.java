@@ -41,7 +41,7 @@ public class ParseUtil {
                     // 解析方法
                     for (MethodDeclaration method : n.getMethods()) {
                         if (isApiMethod(method)) {
-                            ApiInfo apiInfo = parseApiMethod(method, className, qualifiedName, controllerPath, arg, codeRoot);
+                            ApiInfo apiInfo = parseApiMethod(method, className, qualifiedName, controllerPath, codeRoot);
                             if (apiInfo != null) {
 //                                result.addApi(apiInfo);
                                 result.addApiToGroup(qualifiedName, apiInfo);
@@ -52,11 +52,11 @@ public class ParseUtil {
                     }
 
                     result.setParsedFileCount(result.getParsedFileCount() + 1);
+                    super.visit(n, arg);
                 }
-                super.visit(n, arg);
             }
 
-        }, cu);
+        }, null);
     }
 
     /**
@@ -92,7 +92,7 @@ public class ParseUtil {
     /**
      * 解析API方法
      */
-    public static ApiInfo parseApiMethod(MethodDeclaration method, String className, String qualifiedName, String controllerPath, CompilationUnit cu, String codeRoot) {
+    public static ApiInfo parseApiMethod(MethodDeclaration method, String className, String qualifiedName, String controllerPath, String codeRoot) {
         ApiInfo apiInfo = new ApiInfo();
 
         // 设置基本信息
@@ -109,7 +109,7 @@ public class ParseUtil {
         parseParameters(method, apiInfo, codeRoot);
 
         // 解析返回值
-        parseReturnType(method, apiInfo, cu, codeRoot);
+        parseReturnType(method, apiInfo, codeRoot);
 
         return apiInfo;
     }
@@ -163,6 +163,7 @@ public class ParseUtil {
         parameterInfo.setChildList(children);
         try {
             if (!TypeExtractorUtil.isInternalType(type)) {
+                // 如果是com.xx.xx.Result<String>会有问题,childNodes中为com.xx.xx,Result,String
                 List<Node> childNodes = ((Node) type).getChildNodes();
                 List<Node> nodes = new ArrayList<>();
                 if (childNodes != null && childNodes.size()>0) {
@@ -244,7 +245,7 @@ public class ParseUtil {
     /**
      * 解析返回值类型
      */
-    public static void parseReturnType(MethodDeclaration method, ApiInfo apiInfo, CompilationUnit cu, String codeRoot) {
+    public static void parseReturnType(MethodDeclaration method, ApiInfo apiInfo, String codeRoot) {
         String returnType = method.getType().asString();
         apiInfo.setReturnType(returnType);
         apiInfo.setReturnDescription("返回值类型: " + returnType);
