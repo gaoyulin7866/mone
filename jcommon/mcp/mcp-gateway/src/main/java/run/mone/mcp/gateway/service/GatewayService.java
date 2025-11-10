@@ -6,17 +6,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PostConstruct;
-import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import run.mone.hive.llm.LLM;
-import run.mone.hive.schema.AiMessage;
 import run.mone.mcp.gateway.http.HttpClient;
 import run.mone.mcp.gateway.service.bo.ListApiInfoParam;
 
 import java.lang.reflect.Type;
-import java.util.List;
 import java.util.Map;
 
 @Service
